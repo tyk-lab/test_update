@@ -1,9 +1,16 @@
 import subprocess
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
+
 def run_git_command(cmd):
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    return result.stdout.strip()
+    result = subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    output = result.stdout.strip()
+    error = result.stderr.strip()
+    # 合并输出和错误信息
+    full_output = output + ("\n" + error if error else "")
+    return full_output
 
 
 class GitSyncThread(QThread):
@@ -41,7 +48,7 @@ class GitSyncThread(QThread):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
         )
         total_lines = 0
         lines = []
@@ -55,12 +62,10 @@ class GitSyncThread(QThread):
             self.status.emit("同步完成")
             self.progress.emit(100)
             commit_info = subprocess.check_output(
-                ["git", "log", "-1", "--pretty=format:%h %s [%an]"],
-                text=True
+                ["git", "log", "-1", "--pretty=format:%h %s [%an]"], text=True
             ).strip()
             self.log.emit(f"最新提交: {commit_info}")
             self.finished.emit(True)
         else:
             self.status.emit("同步失败")
             self.finished.emit(False)
-

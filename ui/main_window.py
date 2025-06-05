@@ -3,6 +3,7 @@ from PyQt6.QtCore import Qt
 from updater import Updater
 from utils.git_api import GitSyncThread
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -26,6 +27,7 @@ class MainWindow(QMainWindow):
 
     def check_for_updates(self):
         from ui.updater_dialog import UpdaterDialog
+
         if self.updater.is_update_available():
             dlg = UpdaterDialog(self)
             dlg.update_status("检测到新版本，正在同步...")
@@ -45,5 +47,6 @@ class MainWindow(QMainWindow):
             self.sync_thread.start()
             dlg.exec()
         else:
-            QMessageBox.information(self, "No Updates", "You are using the latest version.")
-# ...existing code...
+            QMessageBox.information(
+                self, "No Updates", "You are using the latest version."
+            )
