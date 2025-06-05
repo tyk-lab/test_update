@@ -1,11 +1,14 @@
 import os
-from utils.git_api import run_git_command
+import subprocess
 import requests
 import zipfile
 import io
 
+from utils.git_sync import run_git_command
+
 
 class Updater:
+    
     def __init__(self, version_file="version", remote="origin"):
         self.version_file = version_file
         self.remote = remote
@@ -47,22 +50,35 @@ class Updater:
         return run_git_command(["git", "pull", self.remote, branch])
 
     def download_and_extract_release_zip(
-        self, repo_url, branch="release", extract_to="."
+        self, repo_url, tag, filename, extract_to="."
     ):
         """
-        从GitHub下载release分支的zip包并解压到指定目录
         :param repo_url: 仓库地址，如 https://github.com/yourusername/yourrepo
-        :param branch: 分支名，默认为release
+        :param tag: release 的 tag 名
+        :param filename: release 上传的 zip 文件名
         :param extract_to: 解压目录
         """
-        zip_url = f"{repo_url}/archive/refs/heads/{branch}.zip"
-        print(f"Downloading: {zip_url}")
-        response = requests.get(zip_url)
-        if response.status_code == 200:
-            with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        zip_url = f"{repo_url}/releases/download/{tag}/{filename}"
+        local_zip = "test.zip"
+        print(f"使用curl下载: {zip_url}")
+        try:
+            # 使用curl下载
+            result = subprocess.run(
+                ["curl", "-L", "-o", local_zip, zip_url],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            if result.returncode != 0:
+                print(f"curl下载失败: {result.stderr}")
+                return False
+            # 解压
+            with zipfile.ZipFile(local_zip, "r") as zf:
                 zf.extractall(extract_to)
             print(f"解压完成，文件已保存到: {extract_to}")
+            if os.path.exists(local_zip):
+                os.remove(local_zip)
             return True
-        else:
-            print(f"下载失败，状态码: {response.status_code}")
+        except Exception as e:
+            print(f"下载或解压过程中发生异常: {e}")
             return False
