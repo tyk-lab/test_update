@@ -26,21 +26,24 @@ class MainWindow(QMainWindow):
 
     def check_for_updates(self):
         from ui.updater_dialog import UpdaterDialog
-        latest_version = self.updater.check_for_updates()
-        if latest_version:
+        if self.updater.is_update_available():
             dlg = UpdaterDialog(self)
             dlg.update_status("检测到新版本，正在同步...")
             dlg.progress_bar.setValue(0)
-            # 启动同步线程
             self.sync_thread = GitSyncThread()
             self.sync_thread.progress.connect(dlg.update_progress)
             self.sync_thread.status.connect(dlg.update_status)
-            self.sync_thread.finished.connect(lambda ok: dlg.accept() if ok else dlg.reject())
+            self.sync_thread.log.connect(dlg.append_log)  # 连接日志信号
+
+            def on_finished(ok):
+                if ok:
+                    dlg.update_status("同步完成")
+                else:
+                    dlg.update_status("同步失败")
+
+            self.sync_thread.finished.connect(on_finished)
             self.sync_thread.start()
             dlg.exec()
-            if self.sync_thread.isFinished():
-                QMessageBox.information(self, "同步完成", "远程分支同步完成！")
-            else:
-                QMessageBox.warning(self, "同步失败", "同步过程中出现问题。")
         else:
             QMessageBox.information(self, "No Updates", "You are using the latest version.")
+# ...existing code...

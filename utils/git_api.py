@@ -10,24 +10,55 @@ class GitSyncThread(QThread):
     progress = pyqtSignal(int)
     status = pyqtSignal(str)
     finished = pyqtSignal(bool)
+    log = pyqtSignal(str)  # 新增信号用于输出文本
 
     def run(self):
+        # 判断版本库是否脏了
+        # status_result = subprocess.run(
+        #     ["git", "status", "--porcelain"],
+        #     stdout=subprocess.PIPE,
+        #     stderr=subprocess.PIPE,
+        #     text=True
+        # )
+        # if status_result.stdout.strip():
+        #     self.status.emit("检测到本地有未提交的更改，正在还原...")
+        #     restore_result = subprocess.run(
+        #         ["git", "restore", "."],
+        #         stdout=subprocess.PIPE,
+        #         stderr=subprocess.PIPE,
+        #         text=True
+        #     )
+        #     if restore_result.returncode != 0:
+        #         error_msg = f"还原失败: {restore_result.stderr.strip()}"
+        #         self.status.emit(error_msg)
+        #         self.log.emit(error_msg)
+        #         self.finished.emit(False)
+        #         return
+
         self.status.emit("正在同步远程分支...")
-        # 这里只是模拟进度，实际可根据输出调整
         process = subprocess.Popen(
-            ["git", "pull"],
+            ["git", "pull", "--progress"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True
+            text=True,
+            bufsize=1
         )
-        total_steps = 5
-        for i in range(total_steps):
-            self.progress.emit(int((i + 1) * 100 / total_steps))
-            self.msleep(300)
-        output, _ = process.communicate()
+        total_lines = 0
+        lines = []
+        for line in process.stdout:
+            lines.append(line)
+            self.log.emit(line.strip())
+            total_lines += 1
+            self.progress.emit(min(99, total_lines * 10))
+        process.wait()
         if process.returncode == 0:
             self.status.emit("同步完成")
             self.progress.emit(100)
+            commit_info = subprocess.check_output(
+                ["git", "log", "-1", "--pretty=format:%h %s [%an]"],
+                text=True
+            ).strip()
+            self.log.emit(f"最新提交: {commit_info}")
             self.finished.emit(True)
         else:
             self.status.emit("同步失败")
